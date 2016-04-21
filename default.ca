@@ -1,0 +1,26 @@
+[ req ]
+default_bits = $CAKEYBITS
+distinguished_name = req_distinguished_name
+x509_extensions = v3_ca
+
+[ req_distinguished_name ]
+countryName = $CACOUNTRYNAME
+countryName_default = $CACOUNTRYNAME
+countryName_min = 2
+countryName_max = 2
+localityName = $CALOCALITYNAME
+localityName_default = $CALOCALITYNAME
+organizationalUnitName = $CAORGANIZATIONALNAME
+organizationalUnitName_default = $CAORGANIZATIONALNAME
+commonName = $CACOMMONNAME
+commonName_default = $CACOMMONNAME
+commonName_max = 64
+emailAddress = $CAEMAIL
+emailAddress_default = $CAEMAIL
+emailAddress_max = 40
+
+[ v3_ca ]
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid:always,issuer:always
+basicConstraints=CA:true
+keyUsage=keyCertSign

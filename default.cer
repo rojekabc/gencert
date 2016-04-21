@@ -1,0 +1,26 @@
+[ req ]
+default_bits = $CERTKEYBITS
+distinguished_name = req_distinguished_name
+x509_extensions = usr_cert
+
+[ req_distinguished_name ]
+countryName = $CERTCOUNTRY
+countryName_default = $CERTCOUNTRY
+countryName_min = 2
+countryName_max = 2
+localityName = $CERTLOCALITY
+localityName_default = $CERTLOCALITY
+#organizationalUnitName = Unknown
+#organizationalUnitName_default = Unknown
+commonName = $CERTNAME
+commonName_default = $CERTNAME
+commonName_max = 64
+emailAddress = $CERTEMAIL
+emailAddress_default = $CERTEMAIL
+emailAddress_max = 40
+
+[ usr_cert ]
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid:always,issuer:always
+basicConstraints=CA:false
+keyUsage=nonRepudiation, digitalSignature, keyEncipherment

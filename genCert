@@ -23,9 +23,56 @@ if test "$1"="--help"; then
 	exit;
 fi
 if test -z $1; then
-	echo "Brak Certu";
+	echo "No configuration name";
 	exit;
 fi
+
+echo "Creating configuration file";
+CERTPROPFILE="$1.cert";
+if test -f $CERTPROPFILE; then
+	# Load user configuration, if exists
+	. $CERTPROPFILE;
+fi
+
+if test -z "$CERTKEYBITS"; then
+	CERTKEYBITS='1024';
+fi
+if test -z "$CERTKEYTYPE"; then
+	CERTKEYTYPE='RSA';
+fi
+if test -z "$CERTCOUNTRYNAME"; then
+	CERTCOUNTRYNAME='PL';
+fi
+if test -z "$CERTLOCALITYNAME"; then
+	CERTLOCALITYNAME='Unknown';
+fi
+if test -z "$CERTORGANIZATIONALNAME"; then
+	CERTORGANIZATIONALNAME='Unknown';
+fi
+if test -z "$CERTCOMMONNAME"; then
+	CERTCOMMONNAME="$1";
+fi
+if test -z "$CERTEMAIL"; then
+	CERTEMAIL="unknown@email.pl";
+fi
+if test -z "$CERTDAYS"; then
+	CERTDAYS="30";
+fi
+if test -z "$CERTPKCS12PASS"; then
+	CERTPKCS12PASS="test";
+fi
+
+echo "CERTNAME='$1'" > $1/$CERTPROPFILE;
+echo "CERTKEYBITS='$CERTKEYBITS'" >> $1/$CERTPROPFILE;
+echo "CERTCOUNTRYNAME='$CERTCOUNTRYNAME'" >> $1/$CERTPROPFILE;
+echo "CERTLOCALITYNAME='$CERTLOCALITYNAME'" >> $1/$CERTPROPFILE;
+echo "CERTORGANIZATIONALNAME='$CERTORGANIZATIONALNAME'" >> $1/$CERTPROPFILE;
+echo "CERTCOMMONNAME='$CERTCOMMONNAME'" >> $1/$CERTPROPFILE;
+echo "CERTEMAIL='$CERTEMAIL'" >> $1/$CERTPROPFILE;
+echo "CERTKEYTYPE='$CERTKEYTYPE'" >> $1/$CERTPROPFILE;
+echo "CERTDAYS='$CERTDAYS'" >> $1/$CERTPROPFILE;
+echo "CERTPKCS12PASS='$CERTPKCS12PASS'" >> $1/$CERTPROPFILE;
+chmod 700 $1/$CERTPROPFILE;
 
 echo "Creating configuration file"
 if test -f $1.cnf; then
