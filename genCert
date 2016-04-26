@@ -1,37 +1,27 @@
 #!/bin/sh
-if test "$1"="--help"; then
-	echo "Skrypt generujacy certyfikaty";
-	echo "Wywolanie: $0 [nazwa]";
-	echo "";
-	echo "Do swojego dzialania wymaga openssl";
-	echo "";
-	echo "Skrypt wygeneruje certyfikat o podanej nazwie oraz klucz dla niego";
-	echo "Do kazdego etapu jest uzywany plik o nazwie nazwa.XXX";
-	echo "Jezeli taki plik nie zostanie odnaleziony to bedzie odbywalo sie poszukiwanie";
-	echo "pliku o nazwie defaultCert.XXX, a jesli tego brak to nastapi uzycie domyslnego"
-	echo "ustawienia. Po kazdym etapie generowany jest plik konfiguracji nazwa.XXX oraz";
-	echo "plik wynikowy";
-	echo "Etapy:";
-	echo "1. Ustalanie pliku konfiguracyjnego [nazwa.cnf] Domyslnie: blad";
-	echo "2. Generowanie klucza [nazwa.rsa lub nazwa.dsa] Domyslnie: RSA 512-bitow Generowanie [nazwa.pem.key]";
-	echo "3. Ustalanie dlugosci zycia certyfikatu [nazwa.days] Domyslnie: 30. Generowanie requesta [nazwa.req]";
-	echo "4. Generowanie certyfikatu. Generowanie [nazwa.der.cer i nazwa.pem.cer]";
-	echo "   Aby certyfikat byl podpisany przez wystawce nalezy stworzyc plik CAname z wpisana nazwa prefixu";
-	echo "   i dla wystawcy utworzyc pliki prefix.pem.cer prefix.pem.key. Dla wystawcy zostanie dodatkowo utworzony";
-	echo "   plik serial z ostatnim numerem seryjnym";
-	echo "5. Tworzenie przenosnych kluczy PKCS #8 [nazwa.der.key] oraz PKCS #12[nazwa.pfx (na haslo test)]";
-	exit;
+# check openssl command exists
+OPENSSL=`which openssl`;
+if test "$?" != "0"; then
+	echo "Cannot find openssl";
+	exit -1;
+elif test -z "$OPENSSL"; then
+	echo "Cannot find openssl";
+	exit -1;
+elif ! test -x "$OPENSSL"; then
+	echo "Cannot execute openssl (no rights)";
+	exit -1;
 fi
+
 if test -z $1; then
 	echo "No configuration name";
 	exit;
 fi
 
 echo "Creating configuration file";
-CERTPROPFILE="$1.cert";
+CERTPROPFILE="$1.certconf";
 if test -f $CERTPROPFILE; then
 	# Load user configuration, if exists
-	. $CERTPROPFILE;
+	source ./$CERTPROPFILE
 fi
 
 if test -z "$CERTKEYBITS"; then
@@ -62,61 +52,46 @@ if test -z "$CERTPKCS12PASS"; then
 	CERTPKCS12PASS="test";
 fi
 
-echo "CERTNAME='$1'" > $1/$CERTPROPFILE;
-echo "CERTKEYBITS='$CERTKEYBITS'" >> $1/$CERTPROPFILE;
-echo "CERTCOUNTRYNAME='$CERTCOUNTRYNAME'" >> $1/$CERTPROPFILE;
-echo "CERTLOCALITYNAME='$CERTLOCALITYNAME'" >> $1/$CERTPROPFILE;
-echo "CERTORGANIZATIONALNAME='$CERTORGANIZATIONALNAME'" >> $1/$CERTPROPFILE;
-echo "CERTCOMMONNAME='$CERTCOMMONNAME'" >> $1/$CERTPROPFILE;
-echo "CERTEMAIL='$CERTEMAIL'" >> $1/$CERTPROPFILE;
-echo "CERTKEYTYPE='$CERTKEYTYPE'" >> $1/$CERTPROPFILE;
-echo "CERTDAYS='$CERTDAYS'" >> $1/$CERTPROPFILE;
-echo "CERTPKCS12PASS='$CERTPKCS12PASS'" >> $1/$CERTPROPFILE;
-chmod 700 $1/$CERTPROPFILE;
-
-echo "Creating configuration file"
-if test -f $1.cnf; then
-	echo -n "";
-elif test -f defaultCert.cnf; then
-	cp defaultCert.cnf $1.cnf
-else
-	echo "Brak pliku konfiguracyjnego"
-	exit;
-fi
+echo "CERTNAME='$1'" > $CERTPROPFILE;
+echo "CERTKEYBITS='$CERTKEYBITS'" >> $CERTPROPFILE;
+echo "CERTCOUNTRYNAME='$CERTCOUNTRYNAME'" >> $CERTPROPFILE;
+echo "CERTLOCALITYNAME='$CERTLOCALITYNAME'" >> $CERTPROPFILE;
+echo "CERTORGANIZATIONALNAME='$CERTORGANIZATIONALNAME'" >> $CERTPROPFILE;
+echo "CERTCOMMONNAME='$CERTCOMMONNAME'" >> $CERTPROPFILE;
+echo "CERTEMAIL='$CERTEMAIL'" >> $CERTPROPFILE;
+echo "CERTKEYTYPE='$CERTKEYTYPE'" >> $CERTPROPFILE;
+echo "CERTDAYS='$CERTDAYS'" >> $CERTPROPFILE;
+echo "CERTPKCS12PASS='$CERTPKCS12PASS'" >> $CERTPROPFILE;
+chmod 700 $CERTPROPFILE;
 
 echo "Genearting key"
-if test -f $1.rsa; then
-	openssl genrsa -out $1.pem.key `cat $1.rsa`
-elif test -f $1.dsa; then
-	openssl gendsa -out $1.pem.key
-elif test -f defaultCert.rsa; then
-	cp defaultCert.rsa $1.rsa
-	openssl genrsa -out $1.pem.key `cat $1.rsa`
-elif test -f defaultCert.dsa; then
-	cp defaultCert.dsa $1.dsa
-	openssl gendsa -out $1.pem.key
-else
-	echo "512" > $1.rsa
-	openssl genrsa -out $1.pem.key `cat $1.rsa`
-fi
-
-echo "Creating days configuration file"
-if test -f $1.days; then
-	echo -n "";
-elif test -f defaultCert.days; then
-	cp defaultCert.days $1.days
-else
-	echo "30" > $1.days
-fi
+case $CERTKEYTYPE in
+	rsa | RSA )
+		openssl genrsa -out $1.pem.key $CERTKEYBITS;
+		;;
+	dsa | DSA )
+		openssl gendsa -out $1.pem.key;
+		;;
+	* )
+		echo "Unrecognized key type [$CERTKEYTYPE]";
+		exit;
+		;;
+esac;
 
 echo "Generating request"
-openssl req -out $1.req -new -key $1.pem.key -keyform PEM -days `cat $1.days` -config $1.cnf -batch
+rm -f $1.cnf;
+while read line; do
+	eval echo $line >> $1.cnf;
+done < "default.cer";
+openssl req -out $1.req -new -key $1.pem.key -keyform PEM -days $CERTDAYS -config $1.cnf -batch
 
-echo "Generating X509 Certificate"
-if test -f CAname; then
-	tmp=`cat CAname`
+# check certificate is self-signed or signed by other CA
+DIRNAME=`pwd`;
+DIRNAME=${DIRNAME##*/};
+if test -f $DIRNAME.ca; then
+	echo "Generating certificate signed by [$DIRNAME] CA"
 	# signed by CA
-	openssl x509 -inform PEM -outform DER -in $1.req -out $1.der.cer -CA $tmp.pem.cer -CAkey $tmp.pem.key -CAserial serial -CAcreateserial -req -extensions usr_cert -extfile $1.cnf
+	openssl x509 -inform PEM -outform DER -in $1.req -out $1.der.cer -CA $DIRNAME.pem.cer -CAkey $DIRNAME.pem.key -CAserial serial -CAcreateserial -req -extensions usr_cert -extfile $1.cnf
 else
 	# self signed
 	openssl x509 -inform PEM -outform DER -in $1.req -out $1.der.cer -req -extensions usr_cert -extfile $1.cnf -signkey $1.pem.key
@@ -127,4 +102,4 @@ echo "Generating PKCS#8"
 openssl pkcs8 -in $1.pem.key -out $1.der.key -inform PEM -outform DER -topk8 -nocrypt
 
 echo "Generating PKCS#12"
-openssl pkcs12 -out $1.pfx -clcerts -nodes -export -in $1.pem.cer -inkey $1.pem.key -password pass:test
+openssl pkcs12 -out $1.pfx -clcerts -nodes -export -in $1.pem.cer -inkey $1.pem.key -password pass:$CERTPKCS12PASS

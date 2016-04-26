@@ -2,6 +2,19 @@
 # Argumenty
 #	nazwa CA
 
+# check openssl command exists
+OPENSSL=`which openssl`;
+if test "$?" != "0"; then
+	echo "Cannot find openssl";
+	exit -1;
+elif test -z "$OPENSSL"; then
+	echo "Cannot find openssl";
+	exit -1;
+elif ! test -x "$OPENSSL"; then
+	echo "Cannot execute openssl (no rights)";
+	exit -1;
+fi
+
 # Check arguments
 if test -z $1; then
 	echo "Give a name of created CA.";
@@ -22,15 +35,15 @@ cd $1;
 ln -s ../genCert genCert;
 ln -s ../reCert reCert;
 ln -s ../createCA createCA;
-cp ../defaultCert.cnf defaultCert.cnf;
 ln -s ../default.ca default.ca;
+ln -s ../default.cer default.cer;
 cd ..;
 
 echo "Creating configuration file";
 CAPROPFILE="$1.ca";
 if test -f $CAPROPFILE; then
 	# Load user configuration, if exists
-	. $CAPROPFILE;
+	source ./$CAPROPFILE;
 fi
 
 if test -z "$CAKEYBITS"; then

@@ -1,52 +1,104 @@
 #!/bin/sh
 
-# argument 1 - recertyfikowany certyfikat
-# argument 2 - certyfikat wynikowy
-# Na podana nazwe istniejacego pliku nastepuje proces recertyfikacji
+# argument 1 - certificate name for recertification
+# argument 2 - output certificate name
+# check openssl command exists
+OPENSSL=`which openssl`;
+if test "$?" != "0"; then
+	echo "Cannot find openssl";
+	exit -1;
+elif test -z "$OPENSSL"; then
+	echo "Cannot find openssl";
+	exit -1;
+elif ! test -x "$OPENSSL"; then
+	echo "Cannot execute openssl (no rights)";
+	exit -1;
+fi
 if test -z $1; then
-	echo "Brak nazwy certyfikatu";
+	echo "No certificate name";
 	exit;
 fi
 if test -z $2; then
-	echo "Brak nazwy certyfikatu recertyfikowanego";
+	echo "No output name of new certificate after recertification process"
 	exit;
 fi
 
 echo "Creating configuration file"
-if test -f $2.cnf; then
-	echo -n "";
-elif test -f $1.cnf; then
-	cp $1.cnf $2.cnf
-elif test -f defaultCert.cnf; then
-	cp defaultCert.cnf $2.cnf
+CERTPROPFILE="$2.certconf";
+if test -f $CERTPROPFILE; then
+	# Load user configuration, if exists
+	source ./$CERTPROPFILE
+elif test -f "$1.certconf"; then
+	# Use previous configuration
+	cp $1.certconf $CERTPROPFILE;
+	source ./$CERTPROPFILE
 fi
+
+if test -z "$CERTKEYBITS"; then
+	CERTKEYBITS='1024';
+fi
+if test -z "$CERTKEYTYPE"; then
+	CERTKEYTYPE='RSA';
+fi
+if test -z "$CERTCOUNTRYNAME"; then
+	CERTCOUNTRYNAME='PL';
+fi
+if test -z "$CERTLOCALITYNAME"; then
+	CERTLOCALITYNAME='Unknown';
+fi
+if test -z "$CERTORGANIZATIONALNAME"; then
+	CERTORGANIZATIONALNAME='Unknown';
+fi
+if test -z "$CERTCOMMONNAME"; then
+	CERTCOMMONNAME="$1";
+fi
+if test -z "$CERTEMAIL"; then
+	CERTEMAIL="unknown@email.pl";
+fi
+if test -z "$CERTDAYS"; then
+	CERTDAYS="30";
+fi
+if test -z "$CERTPKCS12PASS"; then
+	CERTPKCS12PASS="test";
+fi
+
+echo "CERTNAME='$1'" > $CERTPROPFILE;
+echo "CERTKEYBITS='$CERTKEYBITS'" >> $CERTPROPFILE;
+echo "CERTCOUNTRYNAME='$CERTCOUNTRYNAME'" >> $CERTPROPFILE;
+echo "CERTLOCALITYNAME='$CERTLOCALITYNAME'" >> $CERTPROPFILE;
+echo "CERTORGANIZATIONALNAME='$CERTORGANIZATIONALNAME'" >> $CERTPROPFILE;
+echo "CERTCOMMONNAME='$CERTCOMMONNAME'" >> $CERTPROPFILE;
+echo "CERTEMAIL='$CERTEMAIL'" >> $CERTPROPFILE;
+echo "CERTKEYTYPE='$CERTKEYTYPE'" >> $CERTPROPFILE;
+echo "CERTDAYS='$CERTDAYS'" >> $CERTPROPFILE;
+echo "CERTPKCS12PASS='$CERTPKCS12PASS'" >> $CERTPROPFILE;
+chmod 700 $CERTPROPFILE;
 
 echo "Linking keys"
 ln -s $1.pem.key $2.pem.key
 
-echo "Creating days configuration file"
-if test -f $1.days; then
-	cp $1.days $2.days
-elif defaultCert.days; then
-	cp defaultCert.days $2.days
-else
-	echo "30" > $2.days
-fi
-
 echo "Generating request"
-openssl req -out $2.req -new -key $2.pem.key -keyform PEM -days `cat $2.days` -config $2.cnf -batch
+rm -f $2.cnf;
+while read line; do
+	eval echo $line >> $2.cnf;
+done < "default.cer";
+openssl req -out $2.req -new -key $2.pem.key -keyform PEM -days $CERTDAYS -config $2.cnf -batch
 
-echo "Generating X509 Certificate"
-if test -f CAname; then
-	tmp=`cat CAname`
+# check certificate is self-signed or signed by other CA
+DIRNAME=`pwd`;
+DIRNAME=${DIRNAME##*/};
+if test -f $DIRNAME.ca; then
+	echo "Generating certificate signed by [$DIRNAME] CA"
 	# signed by CA
-	openssl x509 -inform PEM -outform DER -in $2.req -out $2.der.cer -CA $tmp.pem.cer -CAkey $tmp.pem.key -CAserial serial -CAcreateserial -req -extensions usr_cert -extfile $2.cnf
+	openssl x509 -inform PEM -outform DER -in $2.req -out $2.der.cer -CA $DIRNAME.pem.cer -CAkey $DIRNAME.pem.key -CAserial serial -CAcreateserial -req -extensions usr_cert -extfile $2.cnf
 else
 	# self signed
 	openssl x509 -inform PEM -outform DER -in $2.req -out $2.der.cer -req -extensions usr_cert -extfile $2.cnf -signkey $2.pem.key
 fi
-openssl x509 -inform DER -outform PEM -in $2.der.cer -out $2.pem.cer
+openssl x509 -inform DER -outform PEM -in $1.der.cer -out $2.pem.cer
+
 echo "Generating PKCS#8"
 openssl pkcs8 -in $2.pem.key -out $2.der.key -inform PEM -outform DER -topk8 -nocrypt
+
 echo "Generating PKCS#12"
-openssl pkcs12 -out $2.pfx -clcerts -nodes -export -in $2.pem.cer -inkey $2.pem.key -password pass:test
+openssl pkcs12 -out $2.pfx -clcerts -nodes -export -in $2.pem.cer -inkey $2.pem.key -password pass:$CERTPKCS12PASS
