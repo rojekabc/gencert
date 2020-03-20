@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# Ask about value for specified variable
+# Arguments
+#	name		name of variable
+#	defaultValue	default value to assign
+ask() {
+	read -p "Get the value of '$1' [$2]: " $1;
+	if [[ -z ${!1} ]]; then
+		declare -g "$1"="$2";
+	fi;
+}
+
+# Ask for values for application. Read/Store environment variables of last application call.
+# Arguments
+# 	name	application name
+# 	vars	name of applicarion variables
+ask_application() {
+	if [[ -z $1 ]]; then
+		echo "No application name";
+		exit -1;
+	fi;
+
+	env_file=$1.env;
+
+	# Load last used variables
+	if [[ -f $env_file ]]; then
+		source $env_file;
+	fi
+	rm -f $env_file;
+	shift;
+
+	for var in $*; do
+		ask "${var}" "${!var}";
+		echo "${var}=\"${!var}\"" >> ${env_file};
+	done;
+}

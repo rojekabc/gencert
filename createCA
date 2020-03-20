@@ -2,6 +2,15 @@
 # Argumenty
 #	nazwa CA
 
+source functions/ask.function
+
+CAKEYBITS='1024';
+CAKEYTYPE='RSA';
+CACOUNTRYNAME='PL';
+CADAYS='30';A
+
+ask_application $0 CACOMMONNAME CAKEYBITS CAKEYTYPE CACOUNTRYNAME CALOCALITYNAME CAORGANIZATIONALNAME CAEMAIL CADAYS CAPKCS12PASS;
+
 # check openssl command exists
 OPENSSL=`which openssl`;
 if test "$?" != "0"; then
@@ -15,76 +24,34 @@ elif ! test -x "$OPENSSL"; then
 	exit -1;
 fi
 
-# Check arguments
-if test -z $1; then
+if test -z $CACOMMONNAME; then
 	echo "Give a name of created CA.";
 	exit;
 fi
 
 # Check already exists
-if test -e $1; then
-	echo "CA with name [$1] already exists";
+if test -e $CACOMMONNAME; then
+	echo "CA with name [$CACOMMONNAME] already exists";
 	exit;
 fi
 
-echo "Create CA [$1]";
-mkdir $1
+echo "Create CA [$CACOMMONNAME]";
+mkdir $CACOMMONNAME
 
 echo "Creating base files";
-cd $1;
+cd $CACOMMONNAME;
 ln -s ../genCert genCert;
 ln -s ../reCert reCert;
 ln -s ../createCA createCA;
 ln -s ../default.ca default.ca;
 ln -s ../default.cer default.cer;
+ln -s ../functions;
 cd ..;
 
 echo "Creating configuration file";
-CAPROPFILE="$1.ca";
-if test -f $CAPROPFILE; then
-	# Load user configuration, if exists
-	source ./$CAPROPFILE;
-fi
+CAPROPFILE="$CACOMMONNAME.ca";
 
-if test -z "$CAKEYBITS"; then
-	CAKEYBITS='1024';
-fi
-if test -z "$CAKEYTYPE"; then
-	CAKEYTYPE='RSA';
-fi
-if test -z "$CACOUNTRYNAME"; then
-	CACOUNTRYNAME='PL';
-fi
-if test -z "$CALOCALITYNAME"; then
-	CALOCALITYNAME='Unknown';
-fi
-if test -z "$CAORGANIZATIONALNAME"; then
-	CAORGANIZATIONALNAME='Unknown';
-fi
-if test -z "$CACOMMONNAME"; then
-	CACOMMONNAME="$1";
-fi
-if test -z "$CAEMAIL"; then
-	CAEMAIL="unknown@email.pl";
-fi
-if test -z "$CADAYS"; then
-	CADAYS="30";
-fi
-if test -z "$CAPKCS12PASS"; then
-	CAPKCS12PASS="test";
-fi
-
-echo "CANAME='$1'" > $1/$CAPROPFILE;
-echo "CAKEYBITS='$CAKEYBITS'" >> $1/$CAPROPFILE;
-echo "CACOUNTRYNAME='$CACOUNTRYNAME'" >> $1/$CAPROPFILE;
-echo "CALOCALITYNAME='$CALOCALITYNAME'" >> $1/$CAPROPFILE;
-echo "CAORGANIZATIONALNAME='$CAORGANIZATIONALNAME'" >> $1/$CAPROPFILE;
-echo "CACOMMONNAME='$CACOMMONNAME'" >> $1/$CAPROPFILE;
-echo "CAEMAIL='$CAEMAIL'" >> $1/$CAPROPFILE;
-echo "CAKEYTYPE='$CAKEYTYPE'" >> $1/$CAPROPFILE;
-echo "CADAYS='$CADAYS'" >> $1/$CAPROPFILE;
-echo "CAPKCS12PASS='$CAPKCS12PASS'" >> $1/$CAPROPFILE;
-chmod 700 $1/$CAPROPFILE;
+cp $0.env $CACOMMONNAME/$CAPROFILE;
 
 # while read line; do
 #	eval echo $line;
@@ -94,10 +61,10 @@ chmod 700 $1/$CAPROPFILE;
 echo "Generating key";
 case $CAKEYTYPE in
 	rsa | RSA )
-		openssl genrsa -out $1/$1.pem.key $CAKEYBITS;
+		openssl genrsa -out $CACOMMONNAME/$CACOMMONNAME.pem.key $CAKEYBITS;
 		;;
 	dsa | DSA )
-		openssl gendsa -out $1/$1.pem.key;
+		openssl gendsa -out $CACOMMONNAME/$CACOMMONNAME.pem.key;
 		;;
 	* )
 		echo "Unrecognized key type [$CAKEYTYPE]";
@@ -106,13 +73,13 @@ case $CAKEYTYPE in
 esac;
 
 echo "Generating request";
-rm -f $1/$1.cnf;
+rm -f $CACOMMONNAME/$CACOMMONNAME.cnf;
 while read line; do
-	eval echo $line >> $1/$1.cnf;
+	eval echo $line >> $CACOMMONNAME/$CACOMMONNAME.cnf;
 done < "default.ca";
-if test -f $1/$1.cnf; then
-	openssl req -out $1/$1.req -new -key $1/$1.pem.key -keyform PEM -config $1/$1.cnf -batch
-#	openssl req -out $1/$1.pem.cer -new -key $1/$1.pem.key -keyform PEM -x509 -days `cat $1.days` -config $1/$1.cnf -batch
+if test -f $CACOMMONNAME/$CACOMMONNAME.cnf; then
+	openssl req -out $CACOMMONNAME/$CACOMMONNAME.req -new -key $CACOMMONNAME/$CACOMMONNAME.pem.key -keyform PEM -config $CACOMMONNAME/$CACOMMONNAME.cnf -batch
+#	openssl req -out $CACOMMONNAME/$CACOMMONNAME.pem.cer -new -key $CACOMMONNAME/$CACOMMONNAME.pem.key -keyform PEM -x509 -days `cat $CACOMMONNAME.days` -config $CACOMMONNAME/$CACOMMONNAME.cnf -batch
 else
 	echo "Configuration file not generated";
 fi
@@ -124,19 +91,19 @@ if test -f $DIRNAME.ca; then
 	echo "Generating certificate signed by [$DIRNAME] CA"
 	# it's CA signed by other CA
 	# TODO: Check exists of all needed files
-	openssl x509 -inform PEM -outform DER -in $1/$1.req -out $1/$1.der.cer -CA $DIRNAME.pem.cer -CAkey $DIRNAME.pem.key -CAserial serial -CAcreateserial -req -extensions v3_ca -extfile $1/$1.cnf -days $CADAYS
+	openssl x509 -inform PEM -outform DER -in $CACOMMONNAME/$CACOMMONNAME.req -out $CACOMMONNAME/$CACOMMONNAME.der.cer -CA $DIRNAME.pem.cer -CAkey $DIRNAME.pem.key -CAserial serial -CAcreateserial -req -extensions v3_ca -extfile $CACOMMONNAME/$CACOMMONNAME.cnf -days $CADAYS
 else
 	echo "Generating self-singed certificate (ROOT)"
 	# it's self-signed CA (root)
-	openssl x509 -inform PEM -outform DER -in $1/$1.req -out $1/$1.der.cer -req -extensions v3_ca -extfile $1/$1.cnf -days $CADAYS -signkey $1/$1.pem.key
+	openssl x509 -inform PEM -outform DER -in $CACOMMONNAME/$CACOMMONNAME.req -out $CACOMMONNAME/$CACOMMONNAME.der.cer -req -extensions v3_ca -extfile $CACOMMONNAME/$CACOMMONNAME.cnf -days $CADAYS -signkey $CACOMMONNAME/$CACOMMONNAME.pem.key
 fi;
 
-openssl x509 -inform DER -outform PEM -in $1/$1.der.cer -out $1/$1.pem.cer
-#openssl x509 -inform PEM -outform DER -in $1/$1.pem.cer -out $1/$1.der.cer
+openssl x509 -inform DER -outform PEM -in $CACOMMONNAME/$CACOMMONNAME.der.cer -out $CACOMMONNAME/$CACOMMONNAME.pem.cer
+#openssl x509 -inform PEM -outform DER -in $CACOMMONNAME/$CACOMMONNAME.pem.cer -out $CACOMMONNAME/$CACOMMONNAME.der.cer
 
 # generowanie klucza jako PKCS8
 echo "Generating PKCS#8 without crypting prhase"
-openssl pkcs8 -in $1/$1.pem.key -out $1/$1.der.key -inform PEM -outform DER -topk8 -nocrypt
+openssl pkcs8 -in $CACOMMONNAME/$CACOMMONNAME.pem.key -out $CACOMMONNAME/$CACOMMONNAME.der.key -inform PEM -outform DER -topk8 -nocrypt
 
 echo "Generating PKCS#12 with password"
-openssl pkcs12 -out $1/$1.pfx -clcerts -nodes -export -in $1/$1.pem.cer -inkey $1/$1.pem.key -password pass:$CAPKCS12PASS
+openssl pkcs12 -out $CACOMMONNAME/$CACOMMONNAME.pfx -clcerts -nodes -export -in $CACOMMONNAME/$CACOMMONNAME.pem.cer -inkey $CACOMMONNAME/$CACOMMONNAME.pem.key -password pass:$CAPKCS12PASS

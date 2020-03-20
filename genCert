@@ -12,65 +12,35 @@ elif ! test -x "$OPENSSL"; then
 	exit -1;
 fi
 
-if test -z $1; then
+CERTKEYBITS='1024';
+CERTKEYTYPE='RSA';
+CERTCOUNTRYNAME='PL';
+CERTDAYS="30";
+source functions/ask.function;
+ask_application $0 CERTCOMMONNAME CERTKEYBITS CERTKEYTYPE CERTCOUNTRYNAME CERTLOCALITYNAME CERTORGANIZATIONALNAME CERTEMAIL CERTDAYS CERTPKCS12PASS
+
+if test -z $CERTCOMMONNAME; then
 	echo "No configuration name";
 	exit;
 fi
 
 echo "Creating configuration file";
-CERTPROPFILE="$1.certconf";
+CERTPROPFILE="$CERTCOMMONNAME.certconf";
 if test -f $CERTPROPFILE; then
 	# Load user configuration, if exists
 	source ./$CERTPROPFILE
 fi
 
-if test -z "$CERTKEYBITS"; then
-	CERTKEYBITS='1024';
-fi
-if test -z "$CERTKEYTYPE"; then
-	CERTKEYTYPE='RSA';
-fi
-if test -z "$CERTCOUNTRYNAME"; then
-	CERTCOUNTRYNAME='PL';
-fi
-if test -z "$CERTLOCALITYNAME"; then
-	CERTLOCALITYNAME='Unknown';
-fi
-if test -z "$CERTORGANIZATIONALNAME"; then
-	CERTORGANIZATIONALNAME='Unknown';
-fi
-if test -z "$CERTCOMMONNAME"; then
-	CERTCOMMONNAME="$1";
-fi
-if test -z "$CERTEMAIL"; then
-	CERTEMAIL="unknown@email.pl";
-fi
-if test -z "$CERTDAYS"; then
-	CERTDAYS="30";
-fi
-if test -z "$CERTPKCS12PASS"; then
-	CERTPKCS12PASS="test";
-fi
-
-echo "CERTNAME='$1'" > $CERTPROPFILE;
-echo "CERTKEYBITS='$CERTKEYBITS'" >> $CERTPROPFILE;
-echo "CERTCOUNTRYNAME='$CERTCOUNTRYNAME'" >> $CERTPROPFILE;
-echo "CERTLOCALITYNAME='$CERTLOCALITYNAME'" >> $CERTPROPFILE;
-echo "CERTORGANIZATIONALNAME='$CERTORGANIZATIONALNAME'" >> $CERTPROPFILE;
-echo "CERTCOMMONNAME='$CERTCOMMONNAME'" >> $CERTPROPFILE;
-echo "CERTEMAIL='$CERTEMAIL'" >> $CERTPROPFILE;
-echo "CERTKEYTYPE='$CERTKEYTYPE'" >> $CERTPROPFILE;
-echo "CERTDAYS='$CERTDAYS'" >> $CERTPROPFILE;
-echo "CERTPKCS12PASS='$CERTPKCS12PASS'" >> $CERTPROPFILE;
+cp $0.env $CERTPROFILE;
 chmod 700 $CERTPROPFILE;
 
 echo "Genearting key"
 case $CERTKEYTYPE in
 	rsa | RSA )
-		openssl genrsa -out $1.pem.key $CERTKEYBITS;
+		openssl genrsa -out $CERTCOMMONNAME.pem.key $CERTKEYBITS;
 		;;
 	dsa | DSA )
-		openssl gendsa -out $1.pem.key;
+		openssl gendsa -out $CERTCOMMONNAME.pem.key;
 		;;
 	* )
 		echo "Unrecognized key type [$CERTKEYTYPE]";
@@ -79,11 +49,11 @@ case $CERTKEYTYPE in
 esac;
 
 echo "Generating request"
-rm -f $1.cnf;
+rm -f $CERTCOMMONNAME.cnf;
 while read line; do
-	eval echo $line >> $1.cnf;
+	eval echo $line >> $CERTCOMMONNAME.cnf;
 done < "default.cer";
-openssl req -out $1.req -new -key $1.pem.key -keyform PEM -days $CERTDAYS -config $1.cnf -batch
+openssl req -out $CERTCOMMONNAME.req -new -key $CERTCOMMONNAME.pem.key -keyform PEM -days $CERTDAYS -config $CERTCOMMONNAME.cnf -batch
 
 # check certificate is self-signed or signed by other CA
 DIRNAME=`pwd`;
@@ -91,15 +61,15 @@ DIRNAME=${DIRNAME##*/};
 if test -f $DIRNAME.ca; then
 	echo "Generating certificate signed by [$DIRNAME] CA"
 	# signed by CA
-	openssl x509 -inform PEM -outform DER -in $1.req -out $1.der.cer -CA $DIRNAME.pem.cer -CAkey $DIRNAME.pem.key -CAserial serial -CAcreateserial -req -extensions usr_cert -extfile $1.cnf
+	openssl x509 -inform PEM -outform DER -in $CERTCOMMONNAME.req -out $CERTCOMMONNAME.der.cer -CA $DIRNAME.pem.cer -CAkey $DIRNAME.pem.key -CAserial serial -CAcreateserial -req -extensions usr_cert -extfile $CERTCOMMONNAME.cnf
 else
 	# self signed
-	openssl x509 -inform PEM -outform DER -in $1.req -out $1.der.cer -req -extensions usr_cert -extfile $1.cnf -signkey $1.pem.key
+	openssl x509 -inform PEM -outform DER -in $CERTCOMMONNAME.req -out $CERTCOMMONNAME.der.cer -req -extensions usr_cert -extfile $CERTCOMMONNAME.cnf -signkey $CERTCOMMONNAME.pem.key
 fi
-openssl x509 -inform DER -outform PEM -in $1.der.cer -out $1.pem.cer
+openssl x509 -inform DER -outform PEM -in $CERTCOMMONNAME.der.cer -out $CERTCOMMONNAME.pem.cer
 
 echo "Generating PKCS#8"
-openssl pkcs8 -in $1.pem.key -out $1.der.key -inform PEM -outform DER -topk8 -nocrypt
+openssl pkcs8 -in $CERTCOMMONNAME.pem.key -out $CERTCOMMONNAME.der.key -inform PEM -outform DER -topk8 -nocrypt
 
 echo "Generating PKCS#12"
-openssl pkcs12 -out $1.pfx -clcerts -nodes -export -in $1.pem.cer -inkey $1.pem.key -password pass:$CERTPKCS12PASS
+openssl pkcs12 -out $CERTCOMMONNAME.pfx -clcerts -nodes -export -in $CERTCOMMONNAME.pem.cer -inkey $CERTCOMMONNAME.pem.key -password pass:$CERTPKCS12PASS

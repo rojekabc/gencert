@@ -4,16 +4,16 @@ distinguished_name = req_distinguished_name
 x509_extensions = usr_cert
 
 [ req_distinguished_name ]
-countryName = $CERTCOUNTRY
-countryName_default = $CERTCOUNTRY
+countryName = $CERTCOUNTRYNAME
+countryName_default = $CERTCOUNTRYNAME
 countryName_min = 2
 countryName_max = 2
-localityName = $CERTLOCALITY
-localityName_default = $CERTLOCALITY
+localityName = $CERTLOCALITYNAME
+localityName_default = $CERTLOCALITYNAME
 #organizationalUnitName = Unknown
 #organizationalUnitName_default = Unknown
-commonName = $CERTNAME
-commonName_default = $CERTNAME
+commonName = $CERTCOMMONNAME
+commonName_default = $CERTCOMMONNAME
 commonName_max = 64
 emailAddress = $CERTEMAIL
 emailAddress_default = $CERTEMAIL
