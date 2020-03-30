@@ -7,7 +7,7 @@ source functions/ask.function
 CAKEYBITS='1024';
 CAKEYTYPE='RSA';
 CACOUNTRYNAME='PL';
-CADAYS='30';A
+CADAYS='30';
 
 ask_application $0 CACOMMONNAME CAKEYBITS CAKEYTYPE CACOUNTRYNAME CALOCALITYNAME CAORGANIZATIONALNAME CAEMAIL CADAYS CAPKCS12PASS;
 
@@ -43,19 +43,26 @@ cd $CACOMMONNAME;
 ln -s ../genCert genCert;
 ln -s ../reCert reCert;
 ln -s ../createCA createCA;
+ln -s ../createCRL createCRL;
 ln -s ../default.ca default.ca;
+ln -s ../default.ca.conf;
 ln -s ../default.cer default.cer;
+ln -s ../revokeCert;
 ln -s ../functions;
+touch certindex;
+echo "01" >> certserial;
+echo "01" >> crlnumber;
 cd ..;
 
 echo "Creating configuration file";
-CAPROPFILE="$CACOMMONNAME.ca";
+CAPROFILE="$CACOMMONNAME.ca";
 
+echo "cp $0.env $CACOMMONNAME/$CAPROFILE";
 cp $0.env $CACOMMONNAME/$CAPROFILE;
 
-# while read line; do
-#	eval echo $line;
-# done < "default.ca";
+while read line; do
+	eval echo $line >> $CACOMMONNAME/$CAPROFILE.conf;
+done < "default.ca.conf";
 # exit -1;
 
 echo "Generating key";
@@ -86,7 +93,7 @@ fi
 
 # check certificate is self-signed or signed by other CA
 DIRNAME=`pwd`;
-DIRNAME=${DIRNAME##*/};
+DIRNAME=`basename ${DIRNAME}`;
 if test -f $DIRNAME.ca; then
 	echo "Generating certificate signed by [$DIRNAME] CA"
 	# it's CA signed by other CA

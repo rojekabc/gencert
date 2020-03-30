@@ -1,0 +1,6 @@
+# TODO: Numbering of CRL
+DIRNAME=`pwd`;
+DIRNAME=`basename ${DIRNAME}`;
+
+openssl ca -config $DIRNAME.ca.conf -gencrl -keyfile $DIRNAME.pem.key -cert $DIRNAME.pem.cer -out $DIRNAME.pem.crl
+openssl crl -inform PEM -outform DER -in $DIRNAME.pem.crl -out $DIRNAME.der.crl

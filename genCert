@@ -31,7 +31,7 @@ if test -f $CERTPROPFILE; then
 	source ./$CERTPROPFILE
 fi
 
-cp $0.env $CERTPROFILE;
+cp $0.env $CERTPROPFILE;
 chmod 700 $CERTPROPFILE;
 
 echo "Genearting key"
@@ -61,12 +61,18 @@ DIRNAME=${DIRNAME##*/};
 if test -f $DIRNAME.ca; then
 	echo "Generating certificate signed by [$DIRNAME] CA"
 	# signed by CA
-	openssl x509 -inform PEM -outform DER -in $CERTCOMMONNAME.req -out $CERTCOMMONNAME.der.cer -CA $DIRNAME.pem.cer -CAkey $DIRNAME.pem.key -CAserial serial -CAcreateserial -req -extensions usr_cert -extfile $CERTCOMMONNAME.cnf
+	# openssl x509 -inform PEM -outform DER -in $CERTCOMMONNAME.req -out $CERTCOMMONNAME.der.cer -CA $DIRNAME.pem.cer -CAkey $DIRNAME.pem.key -CAserial serial -CAcreateserial -req -extensions usr_cert -extfile $CERTCOMMONNAME.cnf
+	openssl ca -batch -config $DIRNAME.ca.conf -notext -in $CERTCOMMONNAME.req -out $CERTCOMMONNAME.pem.cer
 else
 	# self signed
 	openssl x509 -inform PEM -outform DER -in $CERTCOMMONNAME.req -out $CERTCOMMONNAME.der.cer -req -extensions usr_cert -extfile $CERTCOMMONNAME.cnf -signkey $CERTCOMMONNAME.pem.key
 fi
-openssl x509 -inform DER -outform PEM -in $CERTCOMMONNAME.der.cer -out $CERTCOMMONNAME.pem.cer
+if [[ -f $CERTCOMMONNAME.der.cer ]]; then
+	openssl x509 -inform DER -outform PEM -in $CERTCOMMONNAME.der.cer -out $CERTCOMMONNAME.pem.cer
+fi;
+if [[ -f $CERTCOMMONNAME.pem.cer ]]; then
+	openssl x509 -inform PEM -outform DER -in $CERTCOMMONNAME.pem.cer -out $CERTCOMMONNAME.der.cer
+fi;
 
 echo "Generating PKCS#8"
 openssl pkcs8 -in $CERTCOMMONNAME.pem.key -out $CERTCOMMONNAME.der.key -inform PEM -outform DER -topk8 -nocrypt

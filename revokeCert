@@ -1,0 +1,16 @@
+#!/bin/bash
+#
+DIRNAME=`pwd`;
+DIRNAME=`basename ${DIRNAME}`;
+
+if [[ -z $1 ]]; then
+	echo "Put the name of the certificate to revoke";
+	exit 1;
+fi;
+
+if [[ ! -f $1.pem.cer ]]; then
+	echo "No certificate with name [$1]";
+	exit 1;
+fi;
+
+openssl ca -config $DIRNAME.ca.conf -revoke $1.pem.cer -keyfile $DIRNAME.pem.key -cert $DIRNAME.pem.cer;
